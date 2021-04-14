@@ -13,10 +13,10 @@ const main = () => {
   app.use(express.urlencoded({ extended: true }))
 
   app.get("/", (_, res) => {
-    res.send("hogehoge")
+    res.send("hogehoge12345")
   })
 
-  app.get("/db", async (_, res) => {
+  app.get("/testdb", async (_, res) => {
     try {
       const client = await pool.connect()
       const result = await client.query('SELECT * FROM member_list')

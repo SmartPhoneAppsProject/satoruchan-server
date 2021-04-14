@@ -6,7 +6,9 @@
   "scripts": {
     "watch": "tsc -w",
     "build": "tsc",
-    "dev": "nodemon dist/index.js"
+    "dev": "nodemon dist/index.js",
+    "devts": "ts-node src/index.ts",
+    "devtsd": "nodemon --exec ts-node src/index.ts"
   },
   "keywords": [],
   "author": "",

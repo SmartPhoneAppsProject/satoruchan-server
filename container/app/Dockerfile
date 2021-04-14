@@ -8,5 +8,5 @@ COPY ../../app/yarn.lock ./
 
 RUN yarn
 
-COPY ../../app .
-RUN yarn build
+# COPY ../../app .
+# RUN yarn build
