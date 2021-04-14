@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: ./container/db/Dockerfile
+    ports:
+      - 5454:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: satoruchan
+    volumes:
+      - ./container/db/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+    container_name: satoruchan_db

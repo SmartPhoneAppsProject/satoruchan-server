@@ -4,8 +4,9 @@ import { Pool } from 'pg'
 const main = () => {
   const app = express()
 
+  const DB_URL = 'postgres://postgres:postgres@localhost:5454/satoruchan'
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: DB_URL
     // ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : null
   })
 
