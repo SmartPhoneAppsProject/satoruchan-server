@@ -53,16 +53,17 @@ loclhost:8888 でサーバーが動いているのでアクセスしてみまし
 `docker compose logs`
 
 データベースの値を確認したい・直接書き換えたい
+
 db コンテナに入る
 
 `docker compose exec db bash`
 
-データベースに入る
+  データベースに入る
 
-`psql -U postgres satoruchan`
+  `psql -U postgres satoruchan`
 
--> `\d` // テーブル確認
+    -> `\d` // テーブル確認
 
--> `select * from member_list`
+    -> `select * from member_list`
 
 db の初期状態は container/db/docker-entrypoint-initdb.d/init.sh で定義できます。
