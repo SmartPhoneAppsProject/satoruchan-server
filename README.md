@@ -44,26 +44,44 @@ loclhost:8888 でサーバーが動いているのでアクセスしてみまし
 
 # ユーティリティ
 
-コンテナ状態確認
+### コンテナ状態確認
 
 `docker compose ps`
 
-コンテナは作成されていても起動していない時とか
+### コンテナは作成されていても起動していない時とか
 
 `docker compose logs`
 
-データベースの値を確認したい・直接書き換えたい
+### データベースの値を確認したい・直接書き換えたい
 
 db コンテナに入る
 
 `docker compose exec db bash`
 
-  データベースに入る
+データベースに入る
 
-  `psql -U postgres satoruchan`
+`psql -U postgres satoruchan`
 
     -> `\d` // テーブル確認
 
     -> `select * from member_list`
+
+### データベースの内容を初期化したい
+
+データベースのデータをコンテナを消しても残しておくために、docker のボリュームという機能を使っています。
+
+コンテナ初回起動時 -> container/db/docker-entrypoint-initdb.d/init.sh が実行される。
+
+コンテナ初回起動以降に再起動 -> ボリューム(satoruchan_db_data)による値が使用される。
+
+ボリュームによって各々の PC にデータが保存されているため、コンテナを破棄 => 再作成 => 再起動ということをしてもデータは保持されます。ボリュームを消したい場合は以下のコマンドを使います。
+
+`docker compose down -v`
+
+`docker compose build --no-cache`
+
+そしてコンテナ再起動
+
+`docker compose up -d`
 
 db の初期状態は container/db/docker-entrypoint-initdb.d/init.sh で定義できます。

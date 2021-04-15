@@ -12,6 +12,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: satoruchan
     volumes:
+      - satoruchan_db_data:/var/lib/postgresql/data
       - ./container/db/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
     container_name: satoruchan_db
   app:
@@ -26,6 +27,8 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres:postgres@satoruchan_db:5432/satoruchan
     container_name: node_app
-    command: yarn devtsd
     volumes:
       - ./app:/usr/src/app
+    command: yarn devtsd
+volumes:
+  satoruchan_db_data: {}
