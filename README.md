@@ -76,9 +76,13 @@ db コンテナに入る
 
 ボリュームによって各々の PC にデータが保存されているため、コンテナを破棄 => 再作成 => 再起動ということをしてもデータは保持されます。ボリュームを消したい場合は以下のコマンドを使います。
 
-`docker compose down -v`
+`docker compose down --rmi all`
 
-`docker compose build --no-cache`
+`docker volume ls`
+
+ボリューム名はおそらく satoruchan-server_satoruchan_db_data になっていると思います。
+
+`docker volume rm ボリューム名`
 
 そしてコンテナ再起動
 
