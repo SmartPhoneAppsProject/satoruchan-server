@@ -13,7 +13,22 @@ const main = () => {
   app.use(express.urlencoded({ extended: true }))
 
   app.get("/", (_, res) => {
-    res.send("hogehoge12345")
+    res.send("hoge432")
+  })
+
+  app.post("/addMember", async (req, res) => {
+    const {name,macaddress} = req.body
+    console.log(name,macaddress)
+
+    try {
+      const client = await pool.connect()
+      const result = await client.query('INSERT INTO member_list VALUES ($1,$2)',[name,macaddress])
+      console.log("result" , result)
+      client.release()
+    } catch (err) {
+      console.log(err)
+      res.send("ERR: " + err)
+    }
   })
 
   app.get("/testdb", async (_, res) => {
