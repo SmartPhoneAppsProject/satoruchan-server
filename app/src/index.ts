@@ -78,16 +78,27 @@ const main = () => {
         })
       })
 
+      console.log('joinMember', joinMember)
+      console.log('exitMember', exitMember)
+
       if (joinMember.length !== 0) {
         joinMember.forEach(async (ma) => {
           await client.query('INSERT INTO active_member VALUES ($1)', [ma])
+          console.log('success insert join member')
         })
+
+        client.release()
+        return
       }
 
       if (exitMember.length !== 0) {
         joinMember.forEach(async (ma) => {
           await client.query('DELETE FROM active_member WHERE macaddress = $1', [ma])
+          console.log('success delete member')
         })
+
+        client.release()
+        return
       }
 
       client.release()

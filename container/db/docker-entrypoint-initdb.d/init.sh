@@ -9,5 +9,5 @@ INSERT INTO member_list values ('ギア','FF:FF:FF:FF:FF:F1');
 INSERT INTO member_list values ('スタヌ','FF:FF:FF:FF:FF:F2');
 
 
-INSERT INTO active_member values (FF:FF:FF:FF:FF:F2');
+INSERT INTO active_member values ('FF:FF:FF:FF:FF:F2');
 EOSQL
