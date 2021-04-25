@@ -57,45 +57,67 @@ const main = () => {
       // 増えた、減った、変化なし
       const joinMember: string[] | null = []
       const exitMember: string[] | null = [];
+      // console.log("reqLen", reqMacaddress.length)
+      // console.log("curLen", currentMember.length)
 
-      reqMacaddress.forEach((reqMa) => {
-        currentMember.forEach((actMem) => {
-          if (actMem.macaddress !== reqMa) {
-            joinMember.push(reqMa)
-            return
-          }
-          return
-        })
-      })
-
-      currentMember.forEach((actMem) => {
-        reqMacaddress.forEach((reqMa) => {
-          if (actMem.macaddress !== reqMa) {
-            exitMember.push(actMem.macaddress)
-            return
-          }
-          return
-        })
-      })
-
-      console.log('joinMember', joinMember)
-      console.log('exitMember', exitMember)
-
-      if (joinMember.length !== 0) {
-        joinMember.forEach(async (ma) => {
+      // active memberがいない時
+      if (currentMember.length === 0 && reqMacaddress.length !== 0) {
+        reqMacaddress.forEach(async (ma) => {
           await client.query('INSERT INTO active_member VALUES ($1)', [ma])
-          console.log('success insert join member')
+          console.log('success insert initial active member')
         })
 
         client.release()
         return
       }
 
-      if (exitMember.length !== 0) {
-        joinMember.forEach(async (ma) => {
-          await client.query('DELETE FROM active_member WHERE macaddress = $1', [ma])
-          console.log('success delete member')
+      // 増える場合reqMacaddressの方が多い
+      if (reqMacaddress.length > currentMember.length) {
+        console.log('in up')
+        reqMacaddress.forEach((reqMa) => {
+          currentMember.forEach((actMem) => {
+            if (actMem.macaddress !== reqMa) {
+              console.log('add ele', reqMa)
+              joinMember.push(reqMa)
+              return
+            }
+          })
         })
+      }
+
+      // 減った場合currentMemberの方が多い
+      if (reqMacaddress.length < currentMember.length) {
+        console.log('in down')
+        currentMember.forEach((actMem) => {
+          reqMacaddress.forEach((reqMa) => {
+            if (actMem.macaddress !== reqMa) {
+              exitMember.push(actMem.macaddress)
+              return
+            }
+          })
+        })
+      }
+
+      console.log('joinMember', joinMember)
+      console.log('exitMember', exitMember)
+
+      if (joinMember.length !== 0) {
+        console.log('exec insert')
+        joinMember.forEach(async (ma) => {
+          await client.query('INSERT INTO active_member VALUES ($1)', [ma])
+        })
+        console.log('success insert join member')
+
+        client.release()
+        return
+      }
+
+      if (exitMember.length !== 0) {
+        console.log("exec delete")
+        exitMember.forEach(async (ma) => {
+          await client.query('DELETE FROM active_member WHERE macaddress = $1', [ma])
+        })
+        console.log('success delete member')
 
         client.release()
         return
@@ -109,6 +131,10 @@ const main = () => {
 
     // slackに名前送信
 
+  })
+
+  // 現在ルームにいる全てのメンバーを返す
+  app.get("/getAllActiveMember", (_, res) => {
   })
 
   app.get("/testdb", async (_, res) => {
