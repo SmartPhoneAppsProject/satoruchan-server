@@ -134,7 +134,25 @@ const main = () => {
   })
 
   // 現在ルームにいる全てのメンバーを返す
-  app.get("/getAllActiveMember", (_, res) => {
+  app.get("/getAllActiveMember", async (_, res) => {
+    try {
+      const client = await pool.connect()
+      const {rows: activeMac } = await client.query('SELECT * FROM active_member')
+      console.log(activeMac)
+
+      const activeMemberNames = []
+      for (let i=0 ; i < activeMac.length; i++) {
+        const {rows: name} = await client.query('SELECT name FROM member_list WHERE macaddress=($1)', [activeMac[i].macaddress])
+        activeMemberNames.push(name[0].name)
+      }
+      console.log(activeMemberNames)
+      
+      client.release()
+      res.end()
+    } catch (err) {
+      console.log(err)
+      res.send("ERR: " + err )
+    }
   })
 
   app.get("/testdb", async (_, res) => {
