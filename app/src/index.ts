@@ -1,7 +1,10 @@
 import express from 'express'
 import { Pool } from 'pg'
+import axios from 'axios'
+import dotenv from 'dotenv'
 
 const main = () => {
+  dotenv.config()
   const app = express()
 
   const pool = new Pool({
@@ -70,8 +73,6 @@ const main = () => {
 
         return
       }
-
-      // 入退出があったが結果的に室内人数が同数になった場合
       
       // ずっといる人
       const stayMember:string[] = []
@@ -106,14 +107,33 @@ const main = () => {
         })
         console.log('success insert join member')
 
+
         // Slackに送信
+
         const joinMemberName = []
         console.log('start send slack!')
         for (let i=0; i<joinMember.length; i++) {
           const {rows: name} = await client.query('SELECT name FROM member_list WHERE macaddress=($1)',[joinMember[i]])
-          joinMemberName.push(name[0])
+          joinMemberName.push(name[0].name)
         }
         console.log(joinMemberName)
+        joinMemberName.forEach( async name => {
+          const headers = {
+            'Content-Type': 'application/json',
+            Authorization: process.env.SLACK_API_KEY,
+          };
+          const data = {
+            channel: process.env.SLACK_CHANNEL_ID,
+            text: name
+          };
+          const { status } = await axios({
+            method: 'post',
+            url: 'https://slack.com/api/chat.postMessage',
+            data,
+            headers,
+          });
+          console.log(status)
+        })
       }
 
       if (exitMember.length !== 0) {
