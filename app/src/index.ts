@@ -41,7 +41,7 @@ const main = () => {
   //   macaddress: string;
   // }
 
-  app.post("/update", async (req) => {
+  app.post("/update", async (req, res) => {
     const client = await pool.connect()
 
     // 10秒に一回送られてくるやつパース
@@ -54,11 +54,8 @@ const main = () => {
       const { rows: currentMember } = await client.query('SELECT * from active_member')
       console.log("currentMember", currentMember)
 
-      // 増えた、減った、変化なし
       const joinMember: string[] | null = []
       const exitMember: string[] | null = [];
-      // console.log("reqLen", reqMacaddress.length)
-      // console.log("curLen", currentMember.length)
 
       // active memberがいない時
       if (currentMember.length === 0 && reqMacaddress.length !== 0) {
@@ -68,12 +65,50 @@ const main = () => {
         })
 
         client.release()
+        res.end()
         return
+      }
+      
+      // メンバーが全員退出した時
+      if (reqMacaddress.length === 0) {
+        await client.query('DELETE FROM active_member')
+        client.release()
+        res.end()
+
+        return
+      }
+
+      // 入退出があったが結果的に室内人数が同数になった場合
+      if (reqMacaddress.length === currentMember.length) {
+        // ずっといる人
+        const stayMember:string[] = []
+        currentMember.forEach(actMem => {
+          if(reqMacaddress.includes(actMem.macaddress)){
+            stayMember.push(actMem.macaddress)
+          }
+        })
+        console.log("staymemver", stayMember)
+
+        // 退出した人
+        currentMember.forEach(actMem => {
+          if(!stayMember.includes(actMem.macaddress)){
+            exitMember.push(actMem.macaddress)
+          }
+        })
+
+        // 入室した人
+        reqMacaddress.forEach(reqMa => {
+          if (!stayMember.includes(reqMa)) {
+            joinMember.push(reqMa)
+          }
+        })
       }
 
       // 増える場合reqMacaddressの方が多い
       if (reqMacaddress.length > currentMember.length) {
         console.log('in up')
+
+        // currentMemberがobjectに対して文字列のincludeが適用できないためforEachを2回回す
         reqMacaddress.forEach((reqMa) => {
           currentMember.forEach((actMem) => {
             if (actMem.macaddress !== reqMa) {
@@ -89,12 +124,9 @@ const main = () => {
       if (reqMacaddress.length < currentMember.length) {
         console.log('in down')
         currentMember.forEach((actMem) => {
-          reqMacaddress.forEach((reqMa) => {
-            if (actMem.macaddress !== reqMa) {
-              exitMember.push(actMem.macaddress)
-              return
-            }
-          })
+          if(!reqMacaddress.includes(actMem.macaddress)) {
+            exitMember.push(actMem.macaddress)
+          }
         })
       }
 
@@ -108,8 +140,13 @@ const main = () => {
         })
         console.log('success insert join member')
 
-        client.release()
-        return
+        // Slackに送信
+        // const joinMemberName = []
+        // for (let i=0; i<joinMember.length; i++) {
+        //   const {rows: name} = await client.query('SELECT name FROM member_list WHERE macaddress=($1)',[joinMember[i]])
+        //   joinMemberName.push(name[0].name)
+        // }
+        // console.log(joinMemberName)
       }
 
       if (exitMember.length !== 0) {
@@ -118,18 +155,15 @@ const main = () => {
           await client.query('DELETE FROM active_member WHERE macaddress = $1', [ma])
         })
         console.log('success delete member')
-
-        client.release()
-        return
       }
 
       client.release()
+      res.end()
 
+      return
     } catch (e) {
       console.log('err', e)
     }
-
-    // slackに名前送信
 
   })
 
@@ -146,7 +180,7 @@ const main = () => {
         activeMemberNames.push(name[0].name)
       }
       console.log(activeMemberNames)
-      
+
       client.release()
       res.end()
     } catch (err) {
