@@ -1,7 +1,10 @@
 import express from 'express'
 import { Pool } from 'pg'
+import axios from 'axios'
+import dotenv from 'dotenv'
 
 const main = () => {
+  dotenv.config()
   const app = express()
 
   const pool = new Pool({
@@ -41,7 +44,7 @@ const main = () => {
   //   macaddress: string;
   // }
 
-  app.post("/update", async (req) => {
+  app.post("/update", async (req, res) => {
     const client = await pool.connect()
 
     // 10秒に一回送られてくるやつパース
@@ -54,49 +57,45 @@ const main = () => {
       const { rows: currentMember } = await client.query('SELECT * from active_member')
       console.log("currentMember", currentMember)
 
-      // 増えた、減った、変化なし
-      const joinMember: string[] | null = []
+      let joinMember: string[] = []
       const exitMember: string[] | null = [];
-      // console.log("reqLen", reqMacaddress.length)
-      // console.log("curLen", currentMember.length)
 
       // active memberがいない時
       if (currentMember.length === 0 && reqMacaddress.length !== 0) {
-        reqMacaddress.forEach(async (ma) => {
-          await client.query('INSERT INTO active_member VALUES ($1)', [ma])
-          console.log('success insert initial active member')
-        })
-
+        joinMember = [...reqMacaddress]
+      }
+      
+      // メンバーが全員退出した時
+      if (reqMacaddress.length === 0) {
+        await client.query('DELETE FROM active_member')
         client.release()
+        res.end()
+
         return
       }
+      
+      // ずっといる人
+      const stayMember:string[] = []
+      currentMember.forEach(actMem => {
+        if(reqMacaddress.includes(actMem.macaddress)){
+          stayMember.push(actMem.macaddress)
+        }
+      })
+      console.log("staymemver", stayMember)
 
-      // 増える場合reqMacaddressの方が多い
-      if (reqMacaddress.length > currentMember.length) {
-        console.log('in up')
-        reqMacaddress.forEach((reqMa) => {
-          currentMember.forEach((actMem) => {
-            if (actMem.macaddress !== reqMa) {
-              console.log('add ele', reqMa)
-              joinMember.push(reqMa)
-              return
-            }
-          })
-        })
-      }
+      // 退出した人
+      currentMember.forEach(actMem => {
+        if(!stayMember.includes(actMem.macaddress)){
+          exitMember.push(actMem.macaddress)
+        }
+      })
 
-      // 減った場合currentMemberの方が多い
-      if (reqMacaddress.length < currentMember.length) {
-        console.log('in down')
-        currentMember.forEach((actMem) => {
-          reqMacaddress.forEach((reqMa) => {
-            if (actMem.macaddress !== reqMa) {
-              exitMember.push(actMem.macaddress)
-              return
-            }
-          })
-        })
-      }
+      // 入室した人
+      reqMacaddress.forEach(reqMa => {
+        if (!stayMember.includes(reqMa)) {
+          joinMember.push(reqMa)
+        }
+      })
 
       console.log('joinMember', joinMember)
       console.log('exitMember', exitMember)
@@ -108,8 +107,33 @@ const main = () => {
         })
         console.log('success insert join member')
 
-        client.release()
-        return
+
+        // Slackに送信
+
+        const joinMemberName = []
+        console.log('start send slack!')
+        for (let i=0; i<joinMember.length; i++) {
+          const {rows: name} = await client.query('SELECT name FROM member_list WHERE macaddress=($1)',[joinMember[i]])
+          joinMemberName.push(name[0].name)
+        }
+        console.log(joinMemberName)
+        joinMemberName.forEach( async name => {
+          const headers = {
+            'Content-Type': 'application/json',
+            Authorization: process.env.SLACK_API_KEY,
+          };
+          const data = {
+            channel: process.env.SLACK_CHANNEL_ID,
+            text: name
+          };
+          const { status } = await axios({
+            method: 'post',
+            url: 'https://slack.com/api/chat.postMessage',
+            data,
+            headers,
+          });
+          console.log(status)
+        })
       }
 
       if (exitMember.length !== 0) {
@@ -118,23 +142,38 @@ const main = () => {
           await client.query('DELETE FROM active_member WHERE macaddress = $1', [ma])
         })
         console.log('success delete member')
-
-        client.release()
-        return
       }
 
       client.release()
+      res.end()
 
+      return
     } catch (e) {
       console.log('err', e)
     }
 
-    // slackに名前送信
-
   })
 
   // 現在ルームにいる全てのメンバーを返す
-  app.get("/getAllActiveMember", (_, res) => {
+  app.get("/getAllActiveMember", async (_, res) => {
+    try {
+      const client = await pool.connect()
+      const {rows: activeMac } = await client.query('SELECT * FROM active_member')
+      console.log(activeMac)
+
+      const activeMemberNames = []
+      for (let i=0 ; i < activeMac.length; i++) {
+        const {rows: name} = await client.query('SELECT name FROM member_list WHERE macaddress=($1)', [activeMac[i].macaddress])
+        activeMemberNames.push(name[0].name)
+      }
+      console.log(activeMemberNames)
+
+      client.release()
+      res.end()
+    } catch (err) {
+      console.log(err)
+      res.send("ERR: " + err )
+    }
   })
 
   app.get("/testdb", async (_, res) => {
