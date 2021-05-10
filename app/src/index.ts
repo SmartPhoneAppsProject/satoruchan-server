@@ -1,7 +1,8 @@
 import express from 'express'
 import { Pool } from 'pg'
-import axios from 'axios'
+// import axios from 'axios'
 import dotenv from 'dotenv'
+import { formatInsertValue } from './helper/formatInsertValue'
 
 const main = () => {
   dotenv.config()
@@ -26,7 +27,7 @@ const main = () => {
 
     try {
       const client = await pool.connect()
-      const result = await client.query('INSERT INTO member_list VALUES ($1,$2)', [name, macaddress])
+      const result = await client.query('INSERT INTO member_list VALUES ($1, $2)', [name, macaddress])
       console.log("result", result)
       client.release()
     } catch (err) {
@@ -39,10 +40,14 @@ const main = () => {
     anyMacaddress: string[];
   }
 
-  // type RegularUser = {
-  //   name: string;
-  //   macaddress: string;
-  // }
+  type MemberList = {
+    name?: string;
+    macaddress?: string;
+  }
+
+  type ActiveMember = {
+    macaddress: string;
+  }
 
   app.post("/update", async (req, res) => {
     const client = await pool.connect()
@@ -54,37 +59,31 @@ const main = () => {
 
     // macaddresの検証
     try {
-      const { rows: currentMember } = await client.query('SELECT * from active_member')
-      console.log("currentMember", currentMember)
+      const { rows: prevMacaddress } = await client.query<ActiveMember>('SELECT * from active_member')
+      console.log("prevMacaddress", prevMacaddress)
 
-      let joinMember: string[] = []
+      const stayMember: string[] = []
+      const joinMember: string[] = []
       const exitMember: string[] | null = [];
-
-      // active memberがいない時
-      if (currentMember.length === 0 && reqMacaddress.length !== 0) {
-        joinMember = [...reqMacaddress]
-      }
 
       // メンバーが全員退出した時
       if (reqMacaddress.length === 0) {
         await client.query('DELETE FROM active_member')
+
         client.release()
         res.end()
-
         return
       }
 
       // ずっといる人
-      const stayMember: string[] = []
-      currentMember.forEach(actMem => {
+      prevMacaddress.forEach(actMem => {
         if (reqMacaddress.includes(actMem.macaddress)) {
           stayMember.push(actMem.macaddress)
         }
       })
-      console.log("staymemver", stayMember)
 
       // 退出した人
-      currentMember.forEach(actMem => {
+      prevMacaddress.forEach(actMem => {
         if (!stayMember.includes(actMem.macaddress)) {
           exitMember.push(actMem.macaddress)
         }
@@ -97,43 +96,39 @@ const main = () => {
         }
       })
 
+      console.log('stayMember', stayMember)
       console.log('joinMember', joinMember)
       console.log('exitMember', exitMember)
 
       if (joinMember.length !== 0) {
-        console.log('exec insert')
-        joinMember.forEach(async (ma) => {
-          await client.query('INSERT INTO active_member VALUES ($1)', [ma])
-        })
-        console.log('success insert join member')
-
+        console.log('excute insert')
+        console.log('formated', formatInsertValue(joinMember))
+        await client.query(`INSERT INTO active_member (macaddress) VALUES ${formatInsertValue(joinMember)}`)
 
         // Slackに送信
-
-        const joinMemberName = []
         console.log('start send slack!')
-        for (let i = 0; i < joinMember.length; i++) {
-          const { rows: name } = await client.query('SELECT name FROM member_list WHERE macaddress=($1)', [joinMember[i]])
-          joinMemberName.push(name[0].name)
-        }
-        console.log(joinMemberName)
-        joinMemberName.forEach(async name => {
-          const headers = {
-            'Content-Type': 'application/json',
-            Authorization: process.env.SLACK_API_KEY,
-          };
-          const data = {
-            channel: process.env.SLACK_CHANNEL_ID,
-            text: name
-          };
-          const { status } = await axios({
-            method: 'post',
-            url: 'https://slack.com/api/chat.postMessage',
-            data,
-            headers,
-          });
-          console.log(status)
-        })
+        // MACアドレスから名前を入手
+        // https://stackoverflow.com/questions/10720420/node-postgres-how-to-execute-where-col-in-dynamic-value-list-query/10829760#10829760
+        const { rows: joinMemberNames } = await client.query<MemberList>('SELECT name FROM member_list WHERE macaddress = ANY($1::text[])', [joinMember])
+        console.log('joinMemberNames', joinMemberNames)
+
+        // joinMemberName.forEach(async name => {
+        //   const headers = {
+        //     'Content-Type': 'application/json',
+        //     Authorization: process.env.SLACK_API_KEY,
+        //   };
+        //   const data = {
+        //     channel: process.env.SLACK_CHANNEL_ID,
+        //     text: name
+        //   };
+        //   const { status } = await axios({
+        //     method: 'post',
+        //     url: 'https://slack.com/api/chat.postMessage',
+        //     data,
+        //     headers,
+        //   });
+        //   console.log(status)
+        // })
       }
 
       if (exitMember.length !== 0) {
@@ -176,13 +171,14 @@ const main = () => {
     }
   })
 
-  app.get("/testdb", async (_, res) => {
+  app.get("/healthDb", async (_, res) => {
     try {
       const client = await pool.connect()
-      const result = await client.query('SELECT * FROM member_list')
+      const result = await client.query('SELECT * FROM member_list LIMIT 1')
       const results = { 'test_member_list': (result) ? result.rows : null }
       res.send(results)
       client.release()
+      res.end()
     } catch (err) {
       console.log(err)
       res.send("ERR: " + err)
