@@ -64,7 +64,7 @@ const main = () => {
       if (currentMember.length === 0 && reqMacaddress.length !== 0) {
         joinMember = [...reqMacaddress]
       }
-      
+
       // メンバーが全員退出した時
       if (reqMacaddress.length === 0) {
         await client.query('DELETE FROM active_member')
@@ -73,11 +73,11 @@ const main = () => {
 
         return
       }
-      
+
       // ずっといる人
-      const stayMember:string[] = []
+      const stayMember: string[] = []
       currentMember.forEach(actMem => {
-        if(reqMacaddress.includes(actMem.macaddress)){
+        if (reqMacaddress.includes(actMem.macaddress)) {
           stayMember.push(actMem.macaddress)
         }
       })
@@ -85,7 +85,7 @@ const main = () => {
 
       // 退出した人
       currentMember.forEach(actMem => {
-        if(!stayMember.includes(actMem.macaddress)){
+        if (!stayMember.includes(actMem.macaddress)) {
           exitMember.push(actMem.macaddress)
         }
       })
@@ -112,12 +112,12 @@ const main = () => {
 
         const joinMemberName = []
         console.log('start send slack!')
-        for (let i=0; i<joinMember.length; i++) {
-          const {rows: name} = await client.query('SELECT name FROM member_list WHERE macaddress=($1)',[joinMember[i]])
+        for (let i = 0; i < joinMember.length; i++) {
+          const { rows: name } = await client.query('SELECT name FROM member_list WHERE macaddress=($1)', [joinMember[i]])
           joinMemberName.push(name[0].name)
         }
         console.log(joinMemberName)
-        joinMemberName.forEach( async name => {
+        joinMemberName.forEach(async name => {
           const headers = {
             'Content-Type': 'application/json',
             Authorization: process.env.SLACK_API_KEY,
@@ -158,12 +158,12 @@ const main = () => {
   app.get("/getAllActiveMember", async (_, res) => {
     try {
       const client = await pool.connect()
-      const {rows: activeMac } = await client.query('SELECT * FROM active_member')
+      const { rows: activeMac } = await client.query('SELECT * FROM active_member')
       console.log(activeMac)
 
       const activeMemberNames = []
-      for (let i=0 ; i < activeMac.length; i++) {
-        const {rows: name} = await client.query('SELECT name FROM member_list WHERE macaddress=($1)', [activeMac[i].macaddress])
+      for (let i = 0; i < activeMac.length; i++) {
+        const { rows: name } = await client.query('SELECT name FROM member_list WHERE macaddress=($1)', [activeMac[i].macaddress])
         activeMemberNames.push(name[0].name)
       }
       console.log(activeMemberNames)
@@ -172,7 +172,7 @@ const main = () => {
       res.end()
     } catch (err) {
       console.log(err)
-      res.send("ERR: " + err )
+      res.send("ERR: " + err)
     }
   })
 
