@@ -100,6 +100,7 @@ const main = () => {
       console.log('joinMember', joinMember)
       console.log('exitMember', exitMember)
 
+      // 入ってきた人をactive_memberに追加
       if (joinMember.length !== 0) {
         console.log('excute insert')
         console.log('formated', formatInsertValue(joinMember))
@@ -114,6 +115,7 @@ const main = () => {
         await sendMessageToSlack(joinMemberNames)
       }
 
+      // 退出した人をactive_memberから削除
       if (exitMember.length !== 0) {
         console.log("exec delete")
         await client.query('DELETE FROM active_member WHERE macaddress = ANY($1::text[])', [exitMember])
@@ -130,9 +132,33 @@ const main = () => {
 
   })
 
+  // app.post("/getAllActiveMember", (req, res) => {
+  //   const { challenge } = req.body
+  //   console.log("get challenge", challenge)
+
+  //   if (challenge) {
+  //     const resData = { challenge }
+
+  //     res.setHeader('Content-type', 'application/json')
+  //     res.status(200).send(JSON.stringify(resData));
+  //     res.end()
+  //     return
+  //   }
+  // })
+
   // 現在ルームにいる全てのメンバーを返す
-  app.get("/getAllActiveMember", async (_, res) => {
+  app.post("/getAllActiveMember", async (req, res) => {
     try {
+      const { challenge } = req.body
+      console.log("get challenge", challenge)
+
+      if (challenge) {
+        const resData = { challenge }
+
+        res.setHeader('Content-type', 'application/json')
+        res.status(200).send(JSON.stringify(resData));
+      }
+
       const client = await pool.connect()
       const { rows: activeMember } = await client.query<ActiveMember>('SELECT * FROM active_member')
       console.log(activeMember)
@@ -148,9 +174,8 @@ const main = () => {
       const { rows: activeMemberNames } = await client.query<MemberList>('SELECT name FROM member_list WHERE macaddress = ANY($1::text[])', [activeMemberMacaddress])
       console.log('activeMemberNames', activeMemberNames)
 
-      // TODO: slackに現在ルームいるメンバーを送信
-
-
+      // slackに現在ルームいるメンバーを送信
+      await sendMessageToSlack(activeMemberNames)
 
       client.release()
       res.end()
