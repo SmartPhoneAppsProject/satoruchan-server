@@ -3,6 +3,9 @@ import { Pool } from 'pg'
 import dotenv from 'dotenv'
 import { formatInsertValue } from './helper/formatInsertValue'
 import { sendMessageToSlack } from './utils/sendMessageToSlack'
+import { isProduction } from './utils/isProduction'
+
+const PORT = process.env.PORT || 8888;
 
 type RequestMacaddress = {
   anyMacaddress: string[];
@@ -17,14 +20,33 @@ type ActiveMember = {
   macaddress: string;
 }
 
-const main = () => {
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: isProduction() ? { rejectUnauthorized: false } : undefined
+})
+
+const init = async () => {
+  let client
+  try {
+    client = await pool.connect()
+    await client.query('CREATE TABLE active_member (macaddress text)')
+    await client.query('CREATE TABLE member_list (name text, macaddress text)')
+
+    client.release()
+    return
+  } finally {
+    client?.release()
+    return
+  }
+}
+
+const main = async () => {
   dotenv.config()
   const app = express()
 
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
-  })
+  if (isProduction()) {
+    await init()
+  }
 
   app.use(express.json())
   app.use(express.urlencoded({ extended: true }))
@@ -200,9 +222,11 @@ const main = () => {
   })
 
 
-  app.listen(8888, () => {
-    console.log('server working! port: 8888');
+  app.listen(PORT, () => {
+    console.log(`server working! port: ${PORT}`);
   })
 }
 
-main()
+main().catch((e) => {
+  console.log(e)
+})
