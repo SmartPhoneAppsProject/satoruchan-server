@@ -42,6 +42,19 @@ loclhost:8888 でサーバーが動いているのでアクセスしてみまし
 
 `docker compose restart`
 
+# デプロイについて
+
+開発では docker-compose を使います。
+本番環境では server の環境のみ docker で作成し、それを heroku の docker registory に push & release することでデプロイしています。
+
+- heroku の registory について
+  https://devcenter.heroku.com/articles/container-registry-and-runtime#cli
+
+- 本番環境で server の環境のみ用意するメリット
+  https://devcenter.heroku.com/ja/articles/local-development-with-docker-compose#pushing-your-containers-to-heroku
+
+注) deploy.sh でデプロイするためには、heroku container にログインしている必要があります。
+
 # ユーティリティ
 
 ### コンテナ状態確認

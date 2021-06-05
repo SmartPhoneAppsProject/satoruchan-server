@@ -15,7 +15,7 @@ services:
       - satoruchan_db_data:/var/lib/postgresql/data
       - ./container/db/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
     container_name: satoruchan_db
-  app:
+  web:
     build:
       context: .
       dockerfile: ./container/app/Dockerfile
@@ -28,7 +28,6 @@ services:
       - DATABASE_URL=postgres://postgres:postgres@satoruchan_db:5432/satoruchan
     container_name: node_app
     volumes:
-      - ./app:/usr/src/app
       - satoruchan_node_modules:/usr/src/app/node_modules
     command: yarn dev-tsd
 volumes:
