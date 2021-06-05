@@ -52,7 +52,7 @@ const main = async () => {
   app.use(express.urlencoded({ extended: true }))
 
   app.get("/", (_, res) => {
-    res.send("hoge432")
+    res.send("start satoruchan-sever!")
   })
 
   app.post("/addMember", async (req, res) => {
@@ -132,6 +132,9 @@ const main = async () => {
         console.log('start send slack!')
         // MACアドレスから名前を入手
         // https://stackoverflow.com/questions/10720420/node-postgres-how-to-execute-where-col-in-dynamic-value-list-query/10829760#10829760
+
+        // TODO: リストにないMACアドレスが入室してきた場合は名前がnullになる場合があるかもしれない
+
         const { rows: joinMemberNames } = await client.query<MemberList>('SELECT name FROM member_list WHERE macaddress = ANY($1::text[])', [joinMember])
         console.log('joinMemberNames', joinMemberNames)
         await sendMessageToSlack(joinMemberNames)

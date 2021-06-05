@@ -29,6 +29,7 @@ services:
     container_name: node_app
     volumes:
       - satoruchan_node_modules:/usr/src/app/node_modules
+      - ./app:/usr/src/app
     command: yarn dev-tsd
 volumes:
   satoruchan_db_data: {}
