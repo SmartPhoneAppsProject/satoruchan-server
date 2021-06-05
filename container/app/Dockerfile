@@ -7,6 +7,3 @@ COPY ../../app/package.json ./
 COPY ../../app/yarn.lock ./
 
 RUN yarn
-
-COPY ../../app .
-# RUN yarn build
