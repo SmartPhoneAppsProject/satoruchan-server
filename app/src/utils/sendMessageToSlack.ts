@@ -1,22 +1,25 @@
 import axios from 'axios'
-import { MemberList } from '../index'
+import { MemberName } from '../index'
 
-const createNameList = (members: MemberList[]) => {
-  let nameList = "";
-  if (members.length > 0) {
-    members.forEach((members) => {
-      nameList += `${members.name} \n`
-    })
-    return nameList
+const createMessage = (members: MemberName[]) => {
+  let message = "";
+
+  if (members.length === 0) {
+    message = "誰もログインしてないわよ"
+    return message
   }
 
-  nameList = "誰もログインしてないわよ"
-  return nameList
+  members.forEach((members) => {
+    message += `${members.name} \n`
+  })
+  return message
 }
 
-export const sendMessageToSlack = async (members: MemberList[]) => {
-  const names = createNameList(members)
-  console.log('names', names)
+export const sendMessageToSlack = async (members: MemberName[]) => {
+
+  const message = createMessage(members)
+
+  console.log('message', message)
 
   const headers = {
     'Content-Type': 'application/json',
@@ -24,7 +27,7 @@ export const sendMessageToSlack = async (members: MemberList[]) => {
   };
   const data = {
     channel: process.env.SLACK_CHANNEL_ID,
-    text: names
+    text: message
   };
   await axios({
     method: 'post',

@@ -11,9 +11,13 @@ type RequestMacaddress = {
   anyMacaddress: string[];
 }
 
-export type MemberList = {
-  name?: string;
-  macaddress?: string;
+// type MemberList = {
+//   name?: string;
+//   macaddress?: string;
+// }
+
+export type MemberName = {
+  name: string;
 }
 
 type ActiveMember = {
@@ -97,6 +101,7 @@ const main = async () => {
       // メンバーが全員退出した時
       if (reqMacaddress.length === 0) {
         await client.query('DELETE FROM active_member')
+        console.log('excute delete all active member')
 
         client.release()
         res.send('success update')
@@ -139,11 +144,15 @@ const main = async () => {
         // MACアドレスから名前を入手
         // https://stackoverflow.com/questions/10720420/node-postgres-how-to-execute-where-col-in-dynamic-value-list-query/10829760#10829760
 
-        // TODO: リストにないMACアドレスが入室してきた場合は名前がnullになる場合があるかもしれない
 
-        const { rows: joinMemberNames } = await client.query<MemberList>('SELECT name FROM member_list WHERE macaddress = ANY($1::text[])', [joinMember])
+        const { rows: joinMemberNames } = await client.query<MemberName>('SELECT name FROM member_list WHERE macaddress = ANY($1::text[])', [joinMember])
         console.log('joinMemberNames', joinMemberNames)
-        await sendMessageToSlack(joinMemberNames)
+
+        // メンバーリストにないMACアドレスがポストされた場合、joinMmeberにはそのMACアドレスが追加される。
+        // MACアドレスからメンバーの名前を調べて、名前が存在した場合のみSlackに通知
+        if (joinMemberNames.length !== 0) {
+          await sendMessageToSlack(joinMemberNames)
+        }
       }
 
       // 退出した人をactive_memberから削除
@@ -163,20 +172,6 @@ const main = async () => {
     }
 
   })
-
-  // app.post("/getAllActiveMember", (req, res) => {
-  //   const { challenge } = req.body
-  //   console.log("get challenge", challenge)
-
-  //   if (challenge) {
-  //     const resData = { challenge }
-
-  //     res.setHeader('Content-type', 'application/json')
-  //     res.status(200).send(JSON.stringify(resData));
-  //     res.end()
-  //     return
-  //   }
-  // })
 
   // 現在ルームにいる全てのメンバーを返す
   app.post("/getAllActiveMember", async (req, res) => {
@@ -204,7 +199,7 @@ const main = async () => {
       console.log('activeMemberMacaddress', activeMemberMacaddress)
 
       // MACアドレスから名前を入手
-      const { rows: activeMemberNames } = await client.query<MemberList>('SELECT name FROM member_list WHERE macaddress = ANY($1::text[])', [activeMemberMacaddress])
+      const { rows: activeMemberNames } = await client.query<MemberName>('SELECT name FROM member_list WHERE macaddress = ANY($1::text[])', [activeMemberMacaddress])
       console.log('activeMemberNames', activeMemberNames)
 
       // slackに現在ルームいるメンバーを送信
