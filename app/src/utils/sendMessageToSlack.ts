@@ -3,9 +3,14 @@ import { MemberList } from '../index'
 
 const createNameList = (members: MemberList[]) => {
   let nameList = "";
-  members.forEach((members) => {
-    nameList += `${members.name} \n`
-  })
+  if (members.length > 0) {
+    members.forEach((members) => {
+      nameList += `${members.name} \n`
+    })
+    return nameList
+  }
+
+  nameList = "誰もログインしてないわよ"
   return nameList
 }
 
