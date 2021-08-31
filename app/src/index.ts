@@ -52,7 +52,7 @@ const main = async () => {
   app.use(express.urlencoded({ extended: true }))
 
   app.get("/", (_, res) => {
-    res.send("start satoruchan-sever!")
+    res.send("running satoruchan sever!")
   })
 
   app.post("/addMember", async (req, res) => {
@@ -64,6 +64,8 @@ const main = async () => {
       const client = await pool.connect()
       const result = await client.query('INSERT INTO member_list VALUES ($1, $2)', [name, macaddress])
       console.log("result", result)
+      res.status(200)
+      res.end()
       client.release()
     } catch (err) {
       console.log(err)
@@ -88,11 +90,16 @@ const main = async () => {
       const joinMember: string[] = []
       const exitMember: string[] | null = [];
 
+      if (!reqMacaddress) {
+        return
+      }
+
       // メンバーが全員退出した時
       if (reqMacaddress.length === 0) {
         await client.query('DELETE FROM active_member')
 
         client.release()
+        res.send('success update')
         res.end()
         return
       }
@@ -125,11 +132,10 @@ const main = async () => {
       // 入ってきた人をactive_memberに追加
       if (joinMember.length !== 0) {
         console.log('excute insert')
-        console.log('formated', formatInsertValue(joinMember))
         await client.query(`INSERT INTO active_member (macaddress) VALUES ${formatInsertValue(joinMember)}`)
 
         // Slackへルームに入ってきたメンバーの名前を送信
-        console.log('start send slack!')
+        console.log('send slack!')
         // MACアドレスから名前を入手
         // https://stackoverflow.com/questions/10720420/node-postgres-how-to-execute-where-col-in-dynamic-value-list-query/10829760#10829760
 
@@ -147,6 +153,7 @@ const main = async () => {
         console.log('success delete member')
       }
 
+      res.send('success update')
       client.release()
       res.end()
 
@@ -174,6 +181,7 @@ const main = async () => {
   // 現在ルームにいる全てのメンバーを返す
   app.post("/getAllActiveMember", async (req, res) => {
     try {
+      // Slackイベントへの応答
       const { challenge } = req.body
       console.log("get challenge", challenge)
 
