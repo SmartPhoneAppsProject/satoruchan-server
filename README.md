@@ -2,18 +2,30 @@
 
 `git clone https://github.com/SmartPhoneAppsProject/satoruchan-server.git`
 
+依存関係のインストール
+
+`cd app/ && yarn` or `cd app/ npm install`
+
+環境変数の設置
+
+app フォルダ内に `.env` ファイルを設置し、次のフォーマットで変数を定義する
+
+```
+SLACK_API_KEY=
+TEST_SLACK_CHANNEL_ID=
+PRODUCTION_SLACK_CHANNEL_ID=
+```
+
 各々の docker 実行環境で init.sh の実行権限がないと docker によりエラーが返される
 そのため以下のコマンドで実行権限を付与する必要があります。クローン後に一度実行するだけでいいです。
 
 `chmod a+x container/db/docker-entrypoint-initdb.d/init.sh`
 
-イメージ作ったりしてコンテナ起動
+コンテナ起動
 
 `docker compose up -d`
 
-コンテナ・イメージ・ネットワークを削除
-
-`docker compose down --rmi all`
+これでアプリが動くはずです。
 
 # 確認
 
@@ -30,6 +42,10 @@ loclhost:8888 でサーバーが動いているのでアクセスしてみまし
 
 `http://localhost:8888/testdb`
 
+コンテナ・イメージ・ネットワークを削除
+
+`docker compose down --rmi all`
+
 # 起動後ワークフロー
 
 コンテナを起動後、app フォルダ内のソースに変更を加えると、コンテナ内のソースも同期して
@@ -42,10 +58,40 @@ loclhost:8888 でサーバーが動いているのでアクセスしてみまし
 
 `docker compose restart`
 
+# 環境変数について
+
+開発環境では doker-compose の `environment` で次の環境変数を定義しています。
+
+```
+DATABASE_URL=
+NODE_ENV=
+```
+
+本番環境では、app/Dockerfile の `ENV` で次の環境変数を定義しています。<br>
+また、本番環境の `DATABASE_URL` は heroku により設定されます。Heroku CLI によりスマプロのアカウントで heroku のさとるちゃんプロジェクトにログイン後、 `heroku config` で実際に設定される変数が確認できると思います。
+
+```
+NODE_ENV=
+```
+
+app/.env では、以下の環境変数を定義しています。
+
+```
+SLACK_API_KEY=
+TEST_SLACK_CHANNEL_ID=
+PRODUCTION_SLACK_CHANNEL_ID=
+```
+
+`NODE_ENV`によって、本番と開発でさとるちゃんが通知するチャンネルが切り替わります。<br>
+`SLACK_API_KEY` は、本番と開発で共通です。
+
 # デプロイについて
 
-開発では docker-compose を使います。
-本番環境では server の環境のみ docker で作成し、それを heroku の docker registory に push & release することでデプロイしています。
+開発環境は docker-compose で整えています。<br>
+開発環境で実際に動くコンテナは、container/ で定義しており、docker-compose で管理しています。
+
+本番環境では docker-compose は使っておらず、 server の環境のみ docker で作成し、それを heroku の docker registory に push & release することでデプロイしています。<br>
+本番環境で実際に動くコンテナは、app/Dockerfile で定義しています。<br>
 
 - heroku の registory について
   https://devcenter.heroku.com/articles/container-registry-and-runtime#cli
