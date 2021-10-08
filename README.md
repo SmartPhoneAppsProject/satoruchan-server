@@ -77,13 +77,15 @@ NODE_ENV=
 app/.env では、以下の環境変数を定義しています。
 
 ```
-SLACK_API_KEY=
+SLACK_API_KEY=Bearer hogehoe
 TEST_SLACK_CHANNEL_ID=
 PRODUCTION_SLACK_CHANNEL_ID=
 ```
 
 `NODE_ENV`によって、本番と開発でさとるちゃんが通知するチャンネルが切り替わります。<br>
 `SLACK_API_KEY` は、本番と開発で共通です。
+
+最後に、本番環境の`PORT`も heroku により自動でセットされます。開発環境では、PORT が heroku によりセットされないため、8888 番ポートがセットされるようになっています。
 
 # デプロイについて
 
