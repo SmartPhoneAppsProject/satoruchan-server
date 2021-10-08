@@ -103,6 +103,14 @@ PRODUCTION_SLACK_CHANNEL_ID=
 
 注) deploy.sh でデプロイするためには、heroku container にログインしている必要があります。
 
+# heroku CLI
+
+heroku CLI は以下の URL からインストールできます。<br>
+https://devcenter.heroku.com/ja/articles/heroku-cli#download-and-install
+
+`heroku config --app satoruchan`で heroku が本番環境でセットしてくれる環境変数が確認できます。このコマンドでは
+表示されないですが、`PORT`もセットしてくれます。
+
 # ユーティリティ
 
 ### コンテナ状態確認
