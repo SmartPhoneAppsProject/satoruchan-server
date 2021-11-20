@@ -1,7 +1,8 @@
 import express from "express";
-import { Pool } from "pg";
+import { Pool, QueryResult } from "pg";
 import dotenv from "dotenv";
 
+import { queryExcuter } from "./utils/queryExcuter";
 import { formatInsertValue } from "./helper/formatInsertValue";
 import { sendMessageToSlack } from "./utils/sendMessageToSlack";
 import { isProduction } from "./utils/isProduction";
@@ -28,20 +29,18 @@ type ActiveMember = {
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: isProduction() ? { rejectUnauthorized: false } : undefined,
+  idleTimeoutMillis: 600000,
 });
 
 const init = async () => {
-  let client;
   try {
-    client = await pool.connect();
-    await client.query("CREATE TABLE active_member (macaddress text)");
-    await client.query("CREATE TABLE member_list (name text, macaddress text)");
-
-    client.release();
-    return;
-  } finally {
-    client?.release();
-    return;
+    await queryExcuter(pool, "CREATE TABLE active_member (macaddress text)");
+    await queryExcuter(
+      pool,
+      "CREATE TABLE member_list (name text, macaddress text)"
+    );
+  } catch (e) {
+    console.log("[InitError]", e);
   }
 };
 
@@ -62,19 +61,15 @@ const main = async () => {
 
   app.post("/addMember", async (req, res) => {
     const { name, macaddress } = req.body;
-    console.log(name, macaddress);
-    // TODO: 同じ名前を追加できないようにする。
 
+    // TODO: 同じ名前を追加できないようにする。
+    // TODO: nameとmacaddressが両方あるか検証する。
     try {
-      const client = await pool.connect();
-      const result = await client.query(
-        "INSERT INTO member_list VALUES ($1, $2)",
-        [name, macaddress]
-      );
-      console.log("result", result);
+      const insertMl = "INSERT INTO member_list VALUES ($1, $2)";
+      await queryExcuter(pool, insertMl, [name, macaddress]);
+
       res.status(200);
       res.end();
-      client.release();
     } catch (err) {
       console.log(err);
       res.send("ERR: " + err);
@@ -82,33 +77,31 @@ const main = async () => {
   });
 
   app.post("/update", async (req, res) => {
-    const client = await pool.connect();
-
     // 10秒に一回送られてくるやつパース
     const { anyMacaddress: reqMacaddress }: RequestMacaddress = req.body;
     console.log("reqMacaddress", reqMacaddress);
 
     // macaddresの検証
     try {
-      const { rows: prevMacaddress } = await client.query<ActiveMember>(
-        "SELECT * from active_member"
-      );
+      const selectAM = "SELECT * from active_member";
+      const { rows: prevMacaddress }: QueryResult<ActiveMember> =
+        await queryExcuter(pool, selectAM);
       console.log("prevMacaddress", prevMacaddress);
 
       const stayMember: string[] = [];
       const joinMember: string[] = [];
       const exitMember: string[] | null = [];
 
-      if (!reqMacaddress) {
-        return;
-      }
+      // if (!reqMacaddress) {
+      //   return;
+      // }
 
       // メンバーが全員退出した時
-      if (reqMacaddress.length === 0) {
-        await client.query("DELETE FROM active_member");
+      if (reqMacaddress.length === 0 || !reqMacaddress) {
+        const deleteAM = "DELETE FROM active_member";
+        await queryExcuter(pool, deleteAM);
         console.log("excute delete all active member");
 
-        client.release();
         res.send("success update");
         res.end();
         return;
@@ -140,49 +133,44 @@ const main = async () => {
       console.log("exitMember", exitMember);
 
       // 入ってきた人をactive_memberに追加
-      if (joinMember.length !== 0) {
+      if (joinMember.length > 0) {
         console.log("excute insert");
-        await client.query(
-          `INSERT INTO active_member (macaddress) VALUES ${formatInsertValue(
-            joinMember
-          )}`
-        );
+        const insertAM = `INSERT INTO active_member (macaddress) VALUES ${formatInsertValue(
+          joinMember
+        )}`;
+        await queryExcuter(pool, insertAM);
 
         // Slackへルームに入ってきたメンバーの名前を送信
-        console.log("send slack!");
         // MACアドレスから名前を入手
         // https://stackoverflow.com/questions/10720420/node-postgres-how-to-execute-where-col-in-dynamic-value-list-query/10829760#10829760
-
-        const { rows: joinMemberNames } = await client.query<MemberName>(
-          "SELECT name FROM member_list WHERE macaddress = ANY($1::text[])",
-          [joinMember]
-        );
+        const selectNameML =
+          "SELECT name FROM member_list WHERE macaddress = ANY($1::text[])";
+        const { rows: joinMemberNames }: QueryResult<MemberName> =
+          await queryExcuter(pool, selectNameML, [joinMember]);
         console.log("joinMemberNames", joinMemberNames);
 
         // メンバーリストにないMACアドレスがポストされた場合、joinMmeberにはそのMACアドレスが追加される。
         // MACアドレスからメンバーの名前を調べて、名前が存在した場合のみSlackに通知
-        if (joinMemberNames.length !== 0) {
+        if (joinMemberNames.length > 0) {
           await sendMessageToSlack(joinMemberNames);
         }
       }
 
       // 退出した人をactive_memberから削除
-      if (exitMember.length !== 0) {
+      if (exitMember.length > 0) {
         console.log("exec delete");
-        await client.query(
-          "DELETE FROM active_member WHERE macaddress = ANY($1::text[])",
-          [exitMember]
-        );
+        const deleteAM =
+          "DELETE FROM active_member WHERE macaddress = ANY($1::text[])";
+        await queryExcuter(pool, deleteAM, [exitMember]);
         console.log("success delete member");
       }
 
       res.send("success update");
-      client.release();
       res.end();
 
       return;
     } catch (e) {
-      console.log("err", e);
+      console.log("[UpdateHundlerError]", e);
     }
   });
 
@@ -200,30 +188,28 @@ const main = async () => {
         res.status(200).send(JSON.stringify(resData));
       }
 
-      const client = await pool.connect();
-      const { rows: activeMember } = await client.query<ActiveMember>(
-        "SELECT * FROM active_member"
-      );
-      console.log(activeMember);
+      const selectAM = "SELECT * FROM active_member";
+      const { rows: activeMember }: QueryResult<ActiveMember> =
+        await queryExcuter(pool, selectAM);
+      console.log("[ActiveMember]", activeMember);
 
       const activeMemberMacaddress: string[] = [];
       activeMember.forEach((ma) => {
         activeMemberMacaddress.push(ma.macaddress);
       });
 
-      console.log("activeMemberMacaddress", activeMemberMacaddress);
+      console.log("[ActiveMemberMacaddress]", activeMemberMacaddress);
 
       // MACアドレスから名前を入手
-      const { rows: activeMemberNames } = await client.query<MemberName>(
-        "SELECT name FROM member_list WHERE macaddress = ANY($1::text[])",
-        [activeMemberMacaddress]
-      );
-      console.log("activeMemberNames", activeMemberNames);
+      const selectNameML =
+        "SELECT name FROM member_list WHERE macaddress = ANY($1::text[])";
+      const { rows: activeMemberNames }: QueryResult<MemberName> =
+        await queryExcuter(pool, selectNameML, [activeMemberMacaddress]);
+      console.log("[ActiveMemberNames]", activeMemberNames);
 
       // slackに現在ルームいるメンバーを送信
       await sendMessageToSlack(activeMemberNames);
 
-      client.release();
       res.end();
     } catch (err) {
       console.log(err);
@@ -233,11 +219,12 @@ const main = async () => {
 
   app.get("/healthDb", async (_, res) => {
     try {
-      const client = await pool.connect();
-      const result = await client.query("SELECT * FROM member_list LIMIT 1");
+      const result = await queryExcuter(
+        pool,
+        "SELECT * FROM member_list LIMIT 1"
+      );
       const results = { test_member_list: result ? result.rows : null };
       res.send(results);
-      client.release();
       res.end();
     } catch (err) {
       console.log(err);
