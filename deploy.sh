@@ -1,14 +1,17 @@
 #!/bin/bash
 
-# heroku container:login
+heroku container:login
 
 echo "現在のリリースバージョンは以下の通りです。"
 echo "================"
 heroku releases:info -a satoruchan | grep "Release"
 echo "================\n"
 
-echo "> コンテナのバージョンを入力してください。"
-echo "[ヒント] 通常、コンテナのバージョンは次のリリースバージョンになります。"
+echo "> コンテナのバージョンを入力してください。\n"
+
+echo "[ヒント1] 通常、コンテナのバージョンは次のリリースバージョンになります。"
+echo "[ヒント2] バージョンは整数で入力してください\n"
+
 read VERSION
 
 echo "create contaier & push heroku registory"
